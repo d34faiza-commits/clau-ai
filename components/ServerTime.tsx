@@ -11,15 +11,22 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-export default function ServerTime() {
+/**
+ * Shows the server's clock in UTC. `serverTime` is the ISO timestamp from the
+ * server render; the offset to the browser clock is kept so the display ticks
+ * with server time even if the visitor's clock is wrong.
+ */
+export default function ServerTime({ serverTime }: { serverTime: string }) {
   // null on first render so server and client markup match (no hydration mismatch)
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
-    setNow(new Date());
-    const id = setInterval(() => setNow(new Date()), 1000);
+    const offset = new Date(serverTime).getTime() - Date.now();
+    const tick = () => setNow(new Date(Date.now() + offset));
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [serverTime]);
 
   const time = now
     ? `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}`
@@ -27,7 +34,7 @@ export default function ServerTime() {
   const date = now
     ? `${DAYS[now.getUTCDay()]}, ${now.getUTCDate()} ${MONTHS[now.getUTCMonth()]} ${now.getUTCFullYear()}`
     : "Loading…";
-  const iso = now ? now.toISOString() : "";
+  const iso = now ? now.toISOString().replace(/\.\d{3}Z$/, "Z") : "";
 
   return (
     <div className="rounded-xl border border-base-border bg-base-panel p-5">
