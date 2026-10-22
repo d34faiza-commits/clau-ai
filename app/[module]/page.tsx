@@ -3,7 +3,6 @@ import { Construction } from "lucide-react";
 
 // Sidebar modules that will be built in later stages.
 const MODULES: Record<string, string> = {
-  "file-manager": "File Manager",
   database: "Database",
   "ai-chat": "AI Chat",
   security: "Security",

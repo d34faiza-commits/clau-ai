@@ -7,6 +7,18 @@ OS, versi PHP, `memory_limit`, `upload_max_filesize`, Safe Mode, web server
 (LiteSpeed / Nginx / Apache / Caddy), Disk, RAM, CPU load, uptime dan jam server (UTC).
 Halaman refresh otomatis tiap 30 detik. Data mentah juga tersedia di `GET /api/system`.
 
+**File Manager** (`/file-manager`): jelajah folder, buat file/folder, edit teks
+(Ctrl+S untuk simpan), upload (tombol atau drag & drop, dengan progress),
+download, rename, chmod, hapus (satu atau banyak sekaligus), dan filter nama.
+
+Keamanan File Manager:
+- Semua operasi dikunci di dalam `FILE_MANAGER_ROOT`. Path traversal (`../`) dan
+  symlink yang mengarah ke luar root ditolak.
+- Request yang mengubah file wajib berasal dari origin yang sama (anti-CSRF).
+- Root tidak bisa dihapus/di-rename; file biner dan file > 2 MB tidak dibuka di editor.
+- Hak akses mengikuti user Linux yang menjalankan aplikasi. Jalankan sebagai user
+  pemilik website (mis. `www-data` atau user cPanel), **bukan root**.
+
 ## Development
 
 ```bash
@@ -20,13 +32,18 @@ npm run dev          # http://localhost:3000
 app/
   layout.tsx            # root layout: Sidebar + konten
   page.tsx              # Dashboard (data live)
+  file-manager/page.tsx # File Manager
   [module]/page.tsx     # placeholder modul tahap berikutnya
   api/system/route.ts   # JSON info server
+  api/files/...         # API File Manager (list, content, upload, download)
   not-found.tsx
 components/
-  Sidebar.tsx  ServerTime.tsx  UsageBar.tsx  AutoRefresh.tsx
+  Sidebar.tsx  ServerTime.tsx  UsageBar.tsx  AutoRefresh.tsx  Modal.tsx
+  file-manager/         # FileManager, FileEditor, FileIcon
 lib/
   system.ts             # pembaca info server (server-only)
+  files.ts              # operasi file yang aman (server-only)
+  api-guard.ts          # proteksi CSRF
   format.ts
 deploy/
   nginx-clau-ai.conf    # reverse proxy + basic auth
@@ -96,3 +113,5 @@ cd /opt/clau-ai && git pull && npm ci && npm run build && pm2 restart clau-ai
 |--------------|---------|----------------------------------------------|
 | `PHP_BINARY` | `php`   | Binary PHP CLI, mis. `/usr/local/lsws/lsphp74/bin/php` |
 | `DISK_PATH`  | `/`     | Mount point untuk kartu Disk Usage           |
+| `FILE_MANAGER_ROOT` | `/var/www` (atau home user) | Folder yang boleh diakses File Manager |
+| `MAX_UPLOAD_MB` | `100` | Batas ukuran per file upload (samakan dengan `client_max_body_size` Nginx) |
