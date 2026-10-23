@@ -1,0 +1,20 @@
+# systemd unit (alternative to PM2)
+# sudo cp deploy/clau-ai.service /etc/systemd/system/
+# sudo systemctl daemon-reload && sudo systemctl enable --now clau-ai
+[Unit]
+Description=clau-ai control panel
+After=network.target
+
+[Service]
+Type=simple
+# Change to the user that owns /opt/clau-ai
+User=clauai
+WorkingDirectory=/opt/clau-ai
+EnvironmentFile=-/opt/clau-ai/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
