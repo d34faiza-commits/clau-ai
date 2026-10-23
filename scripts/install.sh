@@ -108,7 +108,7 @@ version_ge() { [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" == "$2" 
 
 # Runs a command as the panel user with npm's cache inside the install dir.
 as_app() {
-  runuser -u "$APP_USER" -- env HOME="$INSTALL_DIR" npm_config_cache="$INSTALL_DIR/.npm" \
+  runuser -u "$APP_USER" -- env HOME="$INSTALL_DIR" npm_config_cache="$INSTALL_DIR/.npm" npm_config_update_notifier=false \
     PM2_HOME="$INSTALL_DIR/.pm2" NEXT_TELEMETRY_DISABLED=1 PATH="$PATH" "$@"
 }
 

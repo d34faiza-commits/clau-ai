@@ -11,7 +11,7 @@ CONFIG_FILE=/etc/clau-ai.conf
 : "${INSTALL_DIR:?}" "${APP_USER:?}" "${PORT:?}" "${SERVICE_MODE:?}"
 
 as_app() {
-  runuser -u "$APP_USER" -- env HOME="$INSTALL_DIR" npm_config_cache="$INSTALL_DIR/.npm" \
+  runuser -u "$APP_USER" -- env HOME="$INSTALL_DIR" npm_config_cache="$INSTALL_DIR/.npm" npm_config_update_notifier=false \
     PM2_HOME="$INSTALL_DIR/.pm2" NEXT_TELEMETRY_DISABLED=1 PATH="$PATH" "$@"
 }
 
