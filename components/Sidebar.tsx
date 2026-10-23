@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   Bot,
@@ -40,8 +40,15 @@ const NAV_ITEMS: NavItem[] = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const logout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    router.replace("/login");
+    router.refresh();
+  };
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -133,6 +140,7 @@ export default function Sidebar() {
         <div className="border-t border-base-border p-4">
           <button
             type="button"
+            onClick={logout}
             className={[
               "flex w-full items-center gap-2 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-500/20",
               collapsed ? "justify-center" : "",

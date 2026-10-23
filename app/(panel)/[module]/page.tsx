@@ -3,12 +3,8 @@ import { Construction } from "lucide-react";
 
 // Sidebar modules that will be built in later stages.
 const MODULES: Record<string, string> = {
-  database: "Database",
-  "ai-chat": "AI Chat",
-  security: "Security",
   "infra-scan": "Infra Scan",
   "php-info": "PHP Info",
-  compliance: "Compliance",
 };
 
 export const dynamicParams = false;

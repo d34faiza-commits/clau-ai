@@ -28,3 +28,33 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
+
+/* AI Chat "radar" loader */
+@keyframes radar-sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes radar-ping {
+  0% {
+    transform: scale(0.3);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+.radar-sweep {
+  background: conic-gradient(from 0deg, rgba(34, 197, 94, 0.55), rgba(34, 197, 94, 0) 30%);
+  animation: radar-sweep 1.4s linear infinite;
+}
+.radar-ping {
+  animation: radar-ping 1.4s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .radar-sweep,
+  .radar-ping {
+    animation-duration: 4s;
+  }
+}
