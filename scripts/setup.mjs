@@ -69,4 +69,4 @@ rl.close();
 writeFileSync(envPath, env);
 chmodSync(envPath, 0o600);
 console.log(`\n✔ Saved to ${envPath} (permissions 600).`);
-console.log("  Restart the app to apply: pm2 restart clau-ai  (or npm start)");
+console.log("  Restart to apply: sudo systemctl restart clau-ai  (PM2 installs: pm2 restart clau-ai; dev: npm run dev)");

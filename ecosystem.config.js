@@ -5,7 +5,7 @@ module.exports = {
       name: "clau-ai",
       script: "node_modules/next/dist/bin/next",
       // Listen on localhost only; Nginx is the public entry point.
-      args: "start -H 127.0.0.1 -p 3000",
+      args: `start -H 127.0.0.1 -p ${process.env.PORT || 3000}`,
       cwd: __dirname,
       instances: 1,
       autorestart: true,
