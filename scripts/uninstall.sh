@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Removes clau-ai: sudo bash /opt/clau-ai/scripts/uninstall.sh
 # Your websites, databases and the clau-ai folder are kept unless you confirm their removal.
+# PURGE=1 removes the app folder and the clauai MySQL user without asking (databases are never touched).
 set -Eeuo pipefail
 
 CONFIG_FILE=/etc/clau-ai.conf
@@ -10,6 +11,7 @@ CONFIG_FILE=/etc/clau-ai.conf
 . "$CONFIG_FILE"
 
 confirm() {
+  [[ "${PURGE:-0}" == 1 ]] && return 0
   local answer
   read -r -p "$1 [y/N]: " answer </dev/tty || true
   [[ "$answer" =~ ^[Yy] ]]
@@ -21,7 +23,7 @@ if [[ "$SERVICE_MODE" == systemd ]]; then
   rm -f /etc/systemd/system/clau-ai.service
   systemctl daemon-reload
 else
-  runuser -u "$APP_USER" -- env HOME="$INSTALL_DIR" PM2_HOME="$INSTALL_DIR/.pm2" PATH="$PATH" pm2 delete clau-ai 2>/dev/null || true
+  runuser -u "$APP_USER" -- env HOME="$INSTALL_DIR" PM2_HOME="$INSTALL_DIR/.pm2" PATH="$PATH" pm2 kill >/dev/null 2>&1 || true
 fi
 
 echo "==> Removing the web server site"
