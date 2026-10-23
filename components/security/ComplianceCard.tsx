@@ -7,7 +7,7 @@ import { FRAMEWORKS } from "@/lib/security/types";
 export default function ComplianceCard() {
   return (
     <ScanCard
-      scanner="compliance"
+      endpoint="/api/security/compliance"
       title="Compliance"
       description="Server hardening checks mapped to SOC 2 Trust Services Criteria and ISO 27001:2022 Annex A controls."
       icon={ClipboardCheck}

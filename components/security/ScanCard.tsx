@@ -3,15 +3,16 @@
 import { useState } from "react";
 import { AlertCircle, Loader2, type LucideIcon } from "lucide-react";
 import ResultsTable from "@/components/security/ResultsTable";
-import type { ScanReport, ScannerId } from "@/lib/security/types";
+import type { ScanReport } from "@/lib/security/types";
 
 export type Field =
-  | { name: string; label: string; type: "text"; defaultValue: string; className?: string }
+  | { name: string; label: string; type: "text"; defaultValue: string; placeholder?: string; className?: string }
   | { name: string; label: string; type: "number"; defaultValue: number; min: number; max: number; className?: string }
   | { name: string; label: string; type: "select"; defaultValue: string; options: Record<string, string>; className?: string };
 
 type ScanCardProps = {
-  scanner: ScannerId;
+  /** POST endpoint that returns a ScanReport, e.g. /api/security/webshell */
+  endpoint: string;
   title: string;
   description: string;
   icon: LucideIcon;
@@ -21,7 +22,7 @@ type ScanCardProps = {
   danger?: boolean;
 };
 
-export default function ScanCard({ scanner, title, description, icon: Icon, iconClass, fields, buttonLabel, danger }: ScanCardProps) {
+export default function ScanCard({ endpoint, title, description, icon: Icon, iconClass, fields, buttonLabel, danger }: ScanCardProps) {
   const [values, setValues] = useState<Record<string, string | number>>(
     Object.fromEntries(fields.map((f) => [f.name, f.defaultValue])),
   );
@@ -34,7 +35,7 @@ export default function ScanCard({ scanner, title, description, icon: Icon, icon
     setRunning(true);
     setError(null);
     try {
-      const res = await fetch(`/api/security/${scanner}`, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
@@ -89,6 +90,7 @@ export default function ScanCard({ scanner, title, description, icon: Icon, icon
                 onChange={(e) =>
                   setValues({ ...values, [f.name]: f.type === "number" ? Number(e.target.value) : e.target.value })
                 }
+                placeholder={f.type === "text" ? f.placeholder : undefined}
                 className={`${input} font-mono`}
                 required
               />

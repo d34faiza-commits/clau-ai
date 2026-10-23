@@ -8,7 +8,7 @@ export default function SecurityScanner({ defaultDir }: { defaultDir: string }) 
   return (
     <div className="space-y-4">
       <ScanCard
-        scanner="permissions"
+        endpoint="/api/security/permissions"
         title="Permission Auditor"
         description="Finds world-writable files and folders, SUID bits, readable config files, exposed backups and .git folders."
         icon={FolderLock}
@@ -17,7 +17,7 @@ export default function SecurityScanner({ defaultDir }: { defaultDir: string }) 
         buttonLabel="Run Audit"
       />
       <ScanCard
-        scanner="credentials"
+        endpoint="/api/security/credentials"
         title="Config Credential Scanner"
         description="Looks for passwords, API keys, tokens and private keys in config files. Secrets are masked in the results."
         icon={KeyRound}
@@ -29,7 +29,7 @@ export default function SecurityScanner({ defaultDir }: { defaultDir: string }) 
         buttonLabel="Scan"
       />
       <ScanCard
-        scanner="webshell"
+        endpoint="/api/security/webshell"
         title="Webshell / Backdoor Detector"
         description="Scans PHP files for eval(base64_decode(…)), shell execution from user input, known webshells and obfuscation."
         icon={Bug}
@@ -39,7 +39,7 @@ export default function SecurityScanner({ defaultDir }: { defaultDir: string }) 
         danger
       />
       <ScanCard
-        scanner="phpini"
+        endpoint="/api/security/phpini"
         title="PHP.INI Security Auditor"
         description="Checks expose_php, display_errors, allow_url_include, disable_functions, open_basedir, session cookie flags and PHP version support."
         icon={FileCog}

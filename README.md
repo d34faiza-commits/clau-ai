@@ -30,6 +30,8 @@ audit keamanan, dan tanya AI soal Linux/PHP dari satu dashboard bertema gelap.
 | **Database** | Daftar database MySQL/MariaDB (ukuran, jumlah tabel, engine, collation), buat database, backup `.sql.gz` (mysqldump), hapus dengan konfirmasi nama. |
 | **AI Chat** | Asisten sysadmin dengan 9 provider: OpenAI, Claude, DeepSeek, Grok, Perplexity, Gemini, Ollama, LM Studio, dan Gateway (endpoint OpenAI-compatible). Daftar model otomatis, blok kode dengan tombol Copy. |
 | **Security Scanner** | Permission Auditor, Config Credential Scanner (secret disamarkan), Webshell/Backdoor Detector, PHP.INI Security Auditor. Hasil PASS / FAIL / WARN + rekomendasi, bisa diekspor ke JSON. |
+| **Infra Scan** | Port yang terbuka (+ deteksi MySQL/Redis/MongoDB dll. yang terekspos publik), pemeriksa sertifikat SSL (kedaluwarsa, salah domain, chain, versi TLS), status layanan & unit systemd yang gagal, update keamanan yang tertunda, proses teratas. |
+| **PHP Info** | Deteksi otomatis semua versi PHP (php8.x, LiteSpeed lsphp, cPanel ea-php, CloudLinux alt-php, Plesk), versi & SAPI, php.ini yang dimuat, setting penting, daftar extension, tabel semua INI directive dengan filter, unduh `php -i`. |
 | **Compliance** | 15 pemeriksaan hardening server yang dipetakan ke kontrol **SOC 2** dan **ISO 27001:2022 Annex A** (SSH root login, firewall, fail2ban, auto-update, NTP, auditd, dll). |
 | **Login** | Satu akun admin, password di-hash scrypt, sesi JWT (cookie `httpOnly`, `SameSite=Strict`), batas percobaan login. |
 
@@ -43,6 +45,8 @@ audit keamanan, dan tanya AI soal Linux/PHP dari satu dashboard bertema gelap.
 | **AI Chat** | **Konfigurasi provider AI** |
 | ![Security](docs/screenshots/security.png) | ![Database](docs/screenshots/database.png) |
 | **Security Scanner** | **Database** |
+| ![Infra Scan](docs/screenshots/infra-scan.png) | ![PHP Info](docs/screenshots/php-info.png) |
+| **Infra Scan** | **PHP Info** |
 
 ## Tech Stack
 
@@ -182,8 +186,9 @@ Endpoint seperti info sistem, audit PHP dan backup database perlu menjalankan pr
 
 1. **Tidak pernah lewat shell.** Selalu `execFile` / `spawn` dengan **array argumen**, bukan `exec("cmd " + input)`.
    Karakter seperti `;`, `|`, `$()` dan backtick tidak punya arti khusus, jadi command injection tidak mungkin terjadi.
-2. **Binary dan argumen tetap.** Hanya program yang sudah ditentukan (`ps`, `php -r <script tetap>`, `mysqldump`).
-   Input user tidak pernah menjadi nama perintah.
+2. **Binary dan argumen tetap.** Hanya program yang sudah ditentukan (`ps`, `ss`, `apt`, `systemctl`, `php -r <script tetap>`,
+   `mysqldump`). Input user tidak pernah menjadi nama perintah. Pilihan versi PHP hanya boleh salah satu binary hasil
+   deteksi server, tidak bisa path bebas.
 3. **Validasi ketat sebelum dipakai.** Nama database harus cocok `^[A-Za-z0-9_]{1,64}$` dan diletakkan setelah `--`.
    Path di-`realpath` lalu harus berada di dalam `FILE_MANAGER_ROOT`, sehingga `../` dan symlink ke luar ditolak.
 4. **Rahasia tidak lewat argv.** Password database dikirim lewat env `MYSQL_PWD`, karena argumen proses bisa dilihat siapa saja lewat `ps`.
@@ -216,6 +221,10 @@ Semua endpoint membutuhkan cookie sesi (login lewat `POST /api/auth/login`).
 | `POST` | `/api/security/webshell` | `{ dir }`: cari `eval(base64_decode`, `system(`, `shell_exec(` dll. |
 | `POST` | `/api/security/phpini` | Audit konfigurasi PHP |
 | `POST` | `/api/security/compliance` | `{ framework: both \| soc2 \| iso27001 }` |
+| `POST` | `/api/infra/ports` · `services` · `updates` · `processes` | Pemindaian infrastruktur |
+| `POST` | `/api/infra/ssl` | `{ domains: "a.com, b.com:8443" }`: cek sertifikat (maks. 20) |
+| `GET` | `/api/php-info?binary=&refresh=1` | Info PHP terstruktur + daftar versi PHP terpasang |
+| `GET` | `/api/php-info/raw?binary=` | Unduh output `php -i` |
 | `GET` / `POST` | `/api/ai/config` | Lihat / simpan provider (API key tidak pernah dikembalikan) |
 | `GET` | `/api/ai/models` | Daftar model dari provider |
 | `POST` | `/api/ai/chat` | `{ messages: [{ role, content }] }` → `{ reply }` |
@@ -242,16 +251,19 @@ clau-ai/
 │   │   ├── database/            # Database
 │   │   ├── ai-chat/             # AI Chat
 │   │   ├── security/            # Security Scanner
-│   │   ├── compliance/          # Compliance
-│   │   └── [module]/            # placeholder modul berikutnya (Infra Scan, PHP Info)
+│   │   ├── infra-scan/          # Infra Scan
+│   │   ├── php-info/            # PHP Info
+│   │   └── compliance/          # Compliance
 │   ├── login/                   # halaman login
-│   ├── api/                     # backend: auth, system, files, security, ai, database
+│   ├── api/                     # backend: auth, system, files, security, infra, php-info, ai, database
 │   ├── layout.tsx
 │   └── globals.css
 ├── components/
 │   ├── Sidebar.tsx  Modal.tsx  LoginForm.tsx  ServerTime.tsx  UsageBar.tsx ...
 │   ├── file-manager/            # FileManager, FileEditor, FileIcon
 │   ├── security/                # ScanCard, ResultsTable, ComplianceCard
+│   ├── infra/                   # InfraScan
+│   ├── php/                     # PhpInfoView
 │   ├── ai/                      # AiChat, RadarLoader, MessageContent
 │   └── database/                # DatabaseManager
 ├── lib/
@@ -259,7 +271,9 @@ clau-ai/
 │   ├── system.ts                               # info server
 │   ├── files.ts                                # operasi file yang aman
 │   ├── database.ts                             # MySQL/MariaDB
+│   ├── phpinfo.ts                              # deteksi versi PHP & info
 │   ├── security/                               # pemindai keamanan & compliance
+│   ├── infra/                                  # port, SSL, layanan, update, proses
 │   └── ai/                                     # provider, konfigurasi, klien AI
 ├── middleware.ts                # proteksi login untuk semua route
 ├── scripts/setup.mjs            # npm run setup
