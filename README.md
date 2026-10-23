@@ -13,9 +13,9 @@ audit keamanan, dan tanya AI soal Linux/PHP dari satu dashboard bertema gelap.
 - [Screenshot](#screenshot)
 - [Tech Stack](#tech-stack)
 - [Prasyarat](#prasyarat)
-- [Instalasi & Menjalankan](#instalasi--menjalankan)
+- [Instalasi di VPS (1 perintah)](#instalasi-di-vps-1-perintah)
+- [Development](#development)
 - [Konfigurasi](#konfigurasi)
-- [Deploy ke VPS](#deploy-ke-vps)
 - [Keamanan](#keamanan)
 - [API](#api)
 - [Struktur Folder](#struktur-folder)
@@ -63,39 +63,117 @@ audit keamanan, dan tanya AI soal Linux/PHP dari satu dashboard bertema gelap.
 
 ## Prasyarat
 
-- **Node.js v18.17+** (disarankan v20 LTS) dan **npm**
-- Linux (Ubuntu/Debian/AlmaLinux). Fitur sistem membaca `/proc`, `/etc` dan `ps`
-- Opsional: **PHP CLI** (info & audit PHP), **MySQL/MariaDB + mysqldump** (halaman Database)
+- VPS **Ubuntu 22.04/24.04, Debian 12, AlmaLinux/Rocky 9** (akses root/sudo). RAM 1 GB cukup; installer menambah swap bila perlu.
+- Installer memasang sendiri **Node.js 22 LTS**, Git dan Nginx bila belum ada.
+- Opsional: **PHP** (info & audit PHP), **MySQL/MariaDB** (halaman Database), **domain** yang mengarah ke IP VPS (untuk HTTPS).
 
-## Instalasi & Menjalankan
+## Instalasi di VPS (1 perintah)
 
 ```bash
 git clone https://github.com/d34faiza-commits/clau-ai.git
 cd clau-ai
-npm install
-
-npm run setup        # buat akun admin + AUTH_SECRET di .env (wajib, sekali saja)
-npm run dev          # development  → http://localhost:3000
+sudo bash scripts/install.sh
 ```
 
-Production:
+Installer menanyakan domain, email (untuk HTTPS), folder website, dan password admin, lalu otomatis:
+
+1. Memasang Node.js 22, Git, Nginx (dan swap 2 GB bila RAM kecil)
+2. Membuat user Linux khusus `clauai` (panel **tidak** berjalan sebagai root)
+3. Menyalin aplikasi ke `/opt/clau-ai`, membuat `.env` (mode 600) dengan akun admin & `AUTH_SECRET`
+4. Mendeteksi PHP yang dipakai website (LiteSpeed lsphp, cPanel ea-php, atau php sistem)
+5. Membuat user MySQL `clauai` untuk halaman Database (jika MySQL/MariaDB berjalan)
+6. Build, lalu menjalankan sebagai service **systemd** (atau PM2 bila tanpa systemd)
+7. Mengonfigurasi **Nginx** + sertifikat **Let's Encrypt** (HTTPS) dan membuka port di UFW/firewalld bila aktif
+8. Mencetak alamat panel, username dan password
+
+Tanpa domain, panel dibuka di `http://IP-SERVER:8090`. Jika server sudah memakai **LiteSpeed/CyberPanel** atau **Apache**,
+Nginx dilewati dan installer menampilkan langkah reverse-proxy untuk web server tersebut.
+
+**Tanpa tanya-jawab** (semua jawaban lewat variabel):
 
 ```bash
-npm run build
-npm start            # listen di 127.0.0.1:3000 (akses publik lewat Nginx)
+sudo DOMAIN=panel.domainanda.com EMAIL=anda@email.com ASSUME_YES=1 bash scripts/install.sh
 ```
-
-Script lain: `npm run lint`, `npm run typecheck`.
-
-## Konfigurasi
-
-Semua konfigurasi ada di `.env`. Salin dari `.env.example`; `npm run setup` mengisi bagian login.
 
 | Variabel | Default | Keterangan |
 |---|---|---|
-| `AUTH_SECRET` | dibuat `npm run setup` | Kunci tanda tangan JWT (min. 32 karakter) |
-| `ADMIN_USERNAME` | dibuat `npm run setup` | Username admin |
-| `ADMIN_PASSWORD_HASH` | dibuat `npm run setup` | Hash scrypt password admin |
+| `DOMAIN` / `EMAIL` | – | Domain panel & email Let's Encrypt (keduanya diisi → HTTPS otomatis) |
+| `WEB_ROOT` | `/var/www` | Folder untuk File Manager & Security Scanner |
+| `APP_USER` | pemilik `WEB_ROOT` atau `clauai` | User Linux yang menjalankan panel |
+| `ADMIN_USER` / `ADMIN_PASS` | `admin` / dibuat acak | Login panel |
+| `INSTALL_DIR` | `/opt/clau-ai` | Lokasi aplikasi |
+| `PORT` / `PANEL_PORT` | `3000` / `8090` | Port internal Node.js / port publik bila tanpa domain |
+| `SETUP_NGINX` / `SETUP_DB` | `auto` | `yes` / `no` untuk memaksa atau melewati langkah tsb. |
+| `RESET_ADMIN` | `0` | `1` = ganti login admin saat installer dijalankan ulang |
+
+Installer aman dijalankan ulang: login admin, user database dan pengaturan yang sudah ada dipertahankan.
+
+> Repo privat? `git clone` akan meminta username GitHub dan **Personal Access Token** (bukan password).
+> Buat token di GitHub → Settings → Developer settings → Personal access tokens (scope: `repo`, read-only cukup).
+
+### Update, uninstall & perintah harian
+
+```bash
+sudo bash /opt/clau-ai/scripts/update.sh      # tarik versi terbaru, build, restart (rollback otomatis bila gagal)
+sudo bash /opt/clau-ai/scripts/uninstall.sh   # hapus service & situs Nginx (website & database tidak disentuh)
+
+systemctl status clau-ai                      # status
+journalctl -u clau-ai -f                      # log
+cd /opt/clau-ai && sudo -u clauai node scripts/setup.mjs && sudo systemctl restart clau-ai   # ganti password admin
+```
+
+### Instalasi manual (tanpa installer)
+
+<details>
+<summary>Langkah manual</summary>
+
+```bash
+# 1. Node.js 22 + Nginx + Git (Ubuntu/Debian)
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs nginx git
+
+# 2. Kode, akun admin, build (sebagai user pemilik website, bukan root)
+sudo git clone https://github.com/d34faiza-commits/clau-ai.git /opt/clau-ai
+sudo chown -R $USER:$USER /opt/clau-ai && cd /opt/clau-ai
+npm ci && npm run setup
+nano .env                       # FILE_MANAGER_ROOT, PHP_BINARY, DB_*
+npm run build
+
+# 3. Service: systemd (deploy/clau-ai.service) atau PM2
+sudo npm install -g pm2 && pm2 start ecosystem.config.js && pm2 save && pm2 startup
+
+# 4. Nginx + HTTPS
+sudo cp deploy/nginx-clau-ai.conf /etc/nginx/sites-available/clau-ai   # ganti panel.example.com
+sudo ln -s /etc/nginx/sites-available/clau-ai /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo apt install -y certbot python3-certbot-nginx && sudo certbot --nginx -d panel.domainanda.com
+
+# 5. (Opsional) user database untuk panel
+sudo mysql -e "CREATE USER 'clauai'@'localhost' IDENTIFIED BY 'password-kuat';
+GRANT ALL PRIVILEGES ON *.* TO 'clauai'@'localhost'; FLUSH PRIVILEGES;"
+```
+
+</details>
+
+## Development
+
+```bash
+npm install
+npm run setup        # buat akun admin + AUTH_SECRET di .env
+npm run dev          # http://localhost:3000
+```
+
+`npm run lint`, `npm run typecheck`, `npm run build`. CI (GitHub Actions) menjalankan semuanya, plus shellcheck untuk script installer, di setiap push dan pull request.
+
+## Konfigurasi
+
+Semua konfigurasi ada di `/opt/clau-ai/.env` (dibuat installer; manual: salin `.env.example`). Restart panel setelah mengubahnya.
+
+| Variabel | Default | Keterangan |
+|---|---|---|
+| `AUTH_SECRET` | dibuat installer / `npm run setup` | Kunci tanda tangan JWT (min. 32 karakter) |
+| `ADMIN_USERNAME` | dibuat installer / `npm run setup` | Username admin |
+| `ADMIN_PASSWORD_HASH` | dibuat installer / `npm run setup` | Hash scrypt password admin |
 | `FILE_MANAGER_ROOT` | `/var/www` (atau home user) | Folder yang boleh diakses File Manager & Security Scanner |
 | `MAX_UPLOAD_MB` | `100` | Batas per file upload (samakan dengan `client_max_body_size` Nginx) |
 | `PHP_BINARY` | `php` | PHP CLI, mis. `/usr/local/lsws/lsphp83/bin/php` untuk LiteSpeed |
@@ -104,69 +182,6 @@ Semua konfigurasi ada di `.env`. Salin dari `.env.example`; `npm run setup` meng
 | `DB_USER` / `DB_PASSWORD` | – | Akun database untuk panel |
 | `DB_SOCKET` | – | Pakai unix socket alih-alih host/port |
 | `DATA_DIR` | `./data` | Lokasi penyimpanan konfigurasi AI |
-
-Ganti password admin kapan saja dengan `npm run setup` lalu restart aplikasi.
-
-## Deploy ke VPS
-
-Panduan untuk Ubuntu/Debian. Aplikasi hanya listen di `127.0.0.1:3000`; Nginx yang menghadap internet.
-
-**1. Install Node.js 20, Nginx, Git**
-
-```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs nginx git
-```
-
-**2. Ambil kode, setup & build** (jalankan sebagai user pemilik website, **bukan root**)
-
-```bash
-sudo git clone https://github.com/d34faiza-commits/clau-ai.git /opt/clau-ai
-sudo chown -R $USER:$USER /opt/clau-ai
-cd /opt/clau-ai
-npm ci
-npm run setup            # buat akun admin
-nano .env                # atur FILE_MANAGER_ROOT, PHP_BINARY, DB_*
-npm run build
-```
-
-**3. Jalankan dengan PM2**
-
-```bash
-sudo npm install -g pm2
-pm2 start ecosystem.config.js
-pm2 save
-pm2 startup              # jalankan perintah yang dicetak agar auto-start saat reboot
-```
-
-Alternatif tanpa PM2: `deploy/clau-ai.service` (systemd).
-
-**4. Nginx + HTTPS**
-
-```bash
-sudo cp deploy/nginx-clau-ai.conf /etc/nginx/sites-available/clau-ai
-sudo nano /etc/nginx/sites-available/clau-ai      # ganti panel.example.com
-sudo ln -s /etc/nginx/sites-available/clau-ai /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d panel.domainanda.com
-```
-
-Jika port 80/443 sudah dipakai LiteSpeed, buat proxy dari LiteSpeed (External App → Web Server
-`127.0.0.1:3000`) sebagai ganti Nginx.
-
-**5. Akun database untuk panel** (opsional)
-
-```bash
-sudo mysql -e "CREATE USER 'clauai'@'localhost' IDENTIFIED BY 'password-kuat';
-GRANT ALL PRIVILEGES ON *.* TO 'clauai'@'localhost'; FLUSH PRIVILEGES;"
-```
-
-**Update ke versi baru**
-
-```bash
-cd /opt/clau-ai && git pull && npm ci && npm run build && pm2 restart clau-ai
-```
 
 ## Keamanan
 
@@ -276,8 +291,9 @@ clau-ai/
 │   ├── infra/                                  # port, SSL, layanan, update, proses
 │   └── ai/                                     # provider, konfigurasi, klien AI
 ├── middleware.ts                # proteksi login untuk semua route
-├── scripts/setup.mjs            # npm run setup
-├── deploy/                      # Nginx & systemd
+├── scripts/                     # install.sh, update.sh, uninstall.sh, setup.mjs
+├── deploy/                      # contoh Nginx & systemd (instalasi manual)
+├── .github/workflows/ci.yml     # CI: lint, typecheck, build, shellcheck
 ├── docs/screenshots/
 ├── ecosystem.config.js          # PM2
 └── .env.example

@@ -13,9 +13,10 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const login = new URL("/login", request.url);
-  if (pathname !== "/") login.searchParams.set("next", pathname + search);
-  return NextResponse.redirect(login);
+  // Relative Location: behind Nginx/LiteSpeed the request URL Next sees is the internal
+  // 127.0.0.1:PORT address, so an absolute redirect would send visitors to localhost.
+  const next = pathname !== "/" ? `?next=${encodeURIComponent(pathname + search)}` : "";
+  return new NextResponse(null, { status: 307, headers: { Location: `/login${next}` } });
 }
 
 export const config = {
